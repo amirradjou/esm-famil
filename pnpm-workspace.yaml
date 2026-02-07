@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+# esbuild's postinstall places its native binary; nothing else may run install scripts.
+allowBuilds:
+  esbuild: true
+
+# pnpm 12 refuses very fresh releases by default; this one is needed for fastify 5.
+minimumReleaseAgeExclude:
+  - '@fastify/static@10.1.4'
