@@ -1,10 +1,10 @@
-export type ValidatorKind = 'none' | 'claude' | 'ollama';
+export type LlmProvider = 'none' | 'claude' | 'ollama';
 
 export interface Config {
   port: number;
   host: string;
   corsOrigins: string[] | true;
-  validator: ValidatorKind;
+  llmProvider: LlmProvider;
   claudeModel: string;
   ollamaUrl: string;
   ollamaModel: string;
@@ -12,7 +12,7 @@ export interface Config {
   staticDir: string | null;
 }
 
-function parseValidator(v: string | undefined): ValidatorKind {
+function parseProvider(v: string | undefined): LlmProvider {
   if (v === 'claude' || v === 'ollama') return v;
   return 'none';
 }
@@ -27,7 +27,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '0.0.0.0',
     // Vite dev server needs an explicit origin; in production the same origin serves both.
     corsOrigins: origins.length > 0 ? origins : true,
-    validator: parseValidator(env.VALIDATOR),
+    llmProvider: parseProvider(env.LLM_PROVIDER),
     claudeModel: env.CLAUDE_MODEL ?? 'claude-opus-5',
     ollamaUrl: env.OLLAMA_URL ?? 'http://localhost:11434',
     ollamaModel: env.OLLAMA_MODEL ?? 'qwen2.5:7b',
