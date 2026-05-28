@@ -1,13 +1,10 @@
 import {
-  ALL_CATEGORIES,
   DEFAULT_SETTINGS,
-  isPersianLetter,
   rescore,
   scoreRound,
   startsWithLetter,
   type Answers,
   type CellResult,
-  type ErrorPayload,
   type GameSettings,
   type Phase,
   type PlayerPublic,
@@ -16,23 +13,13 @@ import {
   type Verdict,
 } from '@esm-famil/shared';
 import { nanoid } from 'nanoid';
+import { RoomError } from './errors.js';
+import { applySettingsPatch } from './settings.js';
 import type { Candidate, ValidationPipeline } from './validation/index.js';
 
 export interface Player extends PlayerPublic {
   token: string;
   joinedAt: number;
-}
-
-export class RoomError extends Error {
-  constructor(
-    readonly code: ErrorPayload['code'],
-    message: string,
-  ) {
-    super(message);
-  }
-  toPayload(): ErrorPayload {
-    return { code: this.code, message: this.message };
-  }
 }
 
 export interface RoomDeps {
@@ -166,36 +153,11 @@ export class Room {
   updateSettings(hostId: string, patch: Partial<GameSettings>): void {
     this.assertHost(hostId);
     this.assertPhase('lobby');
-    const next: GameSettings = { ...this.settings };
-    if (patch.categoryIds) {
-      const known = new Set(ALL_CATEGORIES.map((c) => c.id));
-      const ids = [...new Set(patch.categoryIds.filter((id) => known.has(id)))];
-      if (ids.length < 2) throw new RoomError('bad-request', 'حداقل دو دسته لازم است');
-      next.categoryIds = ids;
-    }
-    if (patch.letterPool) {
-      const letters = [...new Set(patch.letterPool.filter(isPersianLetter))];
-      if (letters.length === 0) throw new RoomError('bad-request', 'حداقل یک حرف لازم است');
-      next.letterPool = letters;
-    }
-    if (patch.roundSeconds !== undefined)
-      next.roundSeconds = clampInt(patch.roundSeconds, 0, 600, 'زمان دور');
-    if (patch.stopGraceSeconds !== undefined)
-      next.stopGraceSeconds = clampInt(patch.stopGraceSeconds, 0, 30, 'مهلت استپ');
-    if (patch.totalRounds !== undefined)
-      next.totalRounds = clampInt(patch.totalRounds, 1, 20, 'تعداد دور');
-    if (patch.soloBonus !== undefined) next.soloBonus = Boolean(patch.soloBonus);
-    if (patch.llmJudge !== undefined) {
-      if (patch.llmJudge && !this.deps.pipeline.capabilities.llm.available)
-        throw new RoomError('bad-request', 'روی این سرور داور هوش مصنوعی تنظیم نشده');
-      next.llmJudge = Boolean(patch.llmJudge);
-    }
-    if (patch.unverifiedPolicy !== undefined) {
-      if (patch.unverifiedPolicy !== 'accept' && patch.unverifiedPolicy !== 'reject')
-        throw new RoomError('bad-request', 'سیاست نامعتبر');
-      next.unverifiedPolicy = patch.unverifiedPolicy;
-    }
-    this.settings = next;
+    this.settings = applySettingsPatch(
+      this.settings,
+      patch,
+      this.deps.pipeline.capabilities.llm.available,
+    );
     this.changed();
   }
 
@@ -410,10 +372,4 @@ export class Room {
       history: this.history,
     };
   }
-}
-
-function clampInt(value: unknown, min: number, max: number, label: string): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) throw new RoomError('bad-request', `${label} نامعتبر است`);
-  return Math.min(max, Math.max(min, Math.round(n)));
 }
