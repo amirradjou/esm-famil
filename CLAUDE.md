@@ -63,5 +63,7 @@ calls «استپ», and the server fact-checks and scores the answers.
 - Screen components must call every hook before the `if (!state || !me) return null` guard —
   the create path renders the lobby once before the session is known, and a hook after the guard
   trips React error #310.
-- Rapid setting toggles in the lobby build on `latest.current` (last patch sent), not on the
-  rendered snapshot, otherwise fast clicks lose updates while the server echo is in flight.
+- `GameSettingsForm` keeps a local copy of the settings and only re-syncs from the snapshot when
+  no patch is in flight (counted via the ack); otherwise fast clicks lose updates.
+- The word database test forbids duplicates (after `normalize()`) and non-Persian entries; keep
+  entries to real members of the category — leniency is the LLM judge's and the host's job.
