@@ -82,13 +82,17 @@ export interface PlayerPublic {
   score: number;
 }
 
-/** Why an answer was accepted or rejected. */
+/** Who decided that an answer is valid. */
+export type VerdictSource = 'list' | 'heuristic' | 'llm' | 'host';
+
+/** Why an answer was rejected: wrong starting letter, not a real thing, or the host said so. */
+export type RejectReason = 'letter' | 'not-a-thing' | 'host';
+
 export type Verdict =
   | { status: 'empty' }
-  | { status: 'invalid'; reason: 'letter' | 'not-a-thing'; note?: string }
-  | { status: 'valid'; source: 'list' | 'heuristic' | 'llm' | 'host' }
   | { status: 'unverified' }
-  | { status: 'invalid'; reason: 'host' };
+  | { status: 'valid'; source: VerdictSource }
+  | { status: 'invalid'; reason: RejectReason; note?: string };
 
 export interface CellResult {
   answer: string;

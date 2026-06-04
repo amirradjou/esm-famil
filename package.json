@@ -16,7 +16,8 @@
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "prettier --check . && pnpm typecheck",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.63.0",

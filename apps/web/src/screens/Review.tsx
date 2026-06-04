@@ -1,7 +1,8 @@
-import { categoryLabel, type CellResult, type Verdict } from '@esm-famil/shared';
+import { categoryLabel } from '@esm-famil/shared';
+import { Letter, Page } from '../components/ui';
+import { VerdictCell } from '../components/VerdictCell';
 import { num } from '../format';
 import { useGame } from '../game';
-import { Letter, Page } from '../components/ui';
 
 export function Review() {
   const { state, me, isHost, override, next } = useGame();
@@ -47,7 +48,7 @@ export function Review() {
                   return (
                     <td key={p.id} className="px-3 py-2 align-top">
                       {cell && (
-                        <Cell
+                        <VerdictCell
                           cell={cell}
                           canOverride={isHost && cell.verdict.status !== 'empty'}
                           onOverride={(valid) => override(p.id, cat, valid)}
@@ -96,60 +97,5 @@ export function Review() {
         <p className="text-ink-soft text-center">منتظر میزبان…</p>
       )}
     </Page>
-  );
-}
-
-function describe(v: Verdict): string {
-  switch (v.status) {
-    case 'empty':
-      return '';
-    case 'valid':
-      return {
-        list: 'در فهرست',
-        heuristic: 'شبیه فامیل',
-        llm: 'تأیید هوش مصنوعی',
-        host: 'تأیید میزبان',
-      }[v.source];
-    case 'unverified':
-      return 'تشخیص داده نشد';
-    case 'invalid':
-      if (v.reason === 'letter') return 'با حرف درست شروع نمی‌شود';
-      if (v.reason === 'host') return 'رد میزبان';
-      return v.note ? `رد: ${v.note}` : 'همچین چیزی نداریم';
-  }
-}
-
-function Cell({
-  cell,
-  canOverride,
-  onOverride,
-}: {
-  cell: CellResult;
-  canOverride: boolean;
-  onOverride: (valid: boolean) => void;
-}) {
-  const v = cell.verdict;
-  if (v.status === 'empty') return <span className="text-ink-soft">—</span>;
-  const good = cell.points > 0;
-  const tone = good ? 'text-ok' : 'text-pen line-through decoration-2';
-  const body = (
-    <>
-      <span className={`text-lg font-medium ${tone}`}>{cell.answer}</span>
-      <span className="text-ink-soft block text-xs">
-        {good ? `${num(cell.points)} امتیاز` : '۰'} · {describe(v)}
-      </span>
-    </>
-  );
-  if (!canOverride) return <div>{body}</div>;
-  const nowValid = v.status === 'valid' || (v.status === 'unverified' && good);
-  return (
-    <button
-      type="button"
-      className="hover:bg-marker/30 -m-1 rounded-[6px] p-1 text-right"
-      title={nowValid ? 'غلط حساب کن' : 'درست حساب کن'}
-      onClick={() => onOverride(!nowValid)}
-    >
-      {body}
-    </button>
   );
 }
