@@ -29,3 +29,6 @@ htmlcov/
 !.vscode/extensions.json
 .DS_Store
 *.swp
+
+# netlify cli state
+.netlify/
