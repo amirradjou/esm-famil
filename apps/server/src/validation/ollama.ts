@@ -5,7 +5,9 @@ import { SYSTEM_PROMPT, buildUserPrompt } from './prompt.js';
 import type { Candidate, Validator } from './types.js';
 
 const ResponseSchema = z.object({
-  results: z.array(z.object({ id: z.string(), valid: z.boolean(), note: z.string().default('') })),
+  results: z.array(
+    z.object({ id: z.coerce.number().int(), valid: z.boolean(), note: z.string().default('') }),
+  ),
 });
 
 const JSON_SCHEMA = {
@@ -16,7 +18,7 @@ const JSON_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          id: { type: 'string' },
+          id: { type: 'integer' },
           valid: { type: 'boolean' },
           note: { type: 'string' },
         },
@@ -65,7 +67,9 @@ export class OllamaValidator implements Validator {
         this.log('ollama validator: response did not match schema', parsed.error);
         return out;
       }
-      applyJudgement(parsed.data, candidates, out);
+      const undecided = applyJudgement(parsed.data, candidates, out);
+      if (undecided > 0)
+        this.log(`ollama validator: ${undecided}/${candidates.length} answers left undecided`);
     } catch (err) {
       this.log('ollama validator: request failed', err);
     }
