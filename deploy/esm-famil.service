@@ -1,0 +1,17 @@
+# systemd *user* unit: runs the game server whenever you are logged in, no root needed.
+#   mkdir -p ~/.config/systemd/user && cp deploy/esm-famil.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now esm-famil
+#   journalctl --user -u esm-famil -f
+[Unit]
+Description=esm-famil game server
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Projects/esm-famil
+ExecStart=/usr/bin/env node --env-file-if-exists=.env apps/server/dist/index.js
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target
