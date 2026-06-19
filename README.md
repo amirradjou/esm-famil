@@ -54,6 +54,13 @@ pnpm build && pnpm start   # http://localhost:3000
 docker compose up --build
 ```
 
+## Deployment
+
+The live game is at **https://esm.amirradjou.com**: the client is a static Netlify site, the
+server runs on a home machine published through Tailscale Funnel. [docs/self-hosting.md](docs/self-hosting.md)
+has the setup, the systemd user service, the deploy workflow and the gotchas. Any host that can
+run a Node process or the Docker image works the same way — point `VITE_SERVER_URL` at it.
+
 ## Development
 
 ```sh

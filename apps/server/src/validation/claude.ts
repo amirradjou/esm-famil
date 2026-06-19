@@ -8,7 +8,8 @@ import type { Candidate, Validator } from './types.js';
 const JudgementSchema = z.object({
   results: z.array(
     z.object({
-      id: z.string(),
+      /** The 1-based number of the answer in the prompt. */
+      id: z.number().int(),
       valid: z.boolean(),
       note: z.string(),
     }),
@@ -46,7 +47,9 @@ export class ClaudeValidator implements Validator {
         this.log(`claude validator returned no judgement (stop_reason=${response.stop_reason})`);
         return out;
       }
-      applyJudgement(response.parsed_output, candidates, out);
+      const undecided = applyJudgement(response.parsed_output, candidates, out);
+      if (undecided > 0)
+        this.log(`claude validator: ${undecided}/${candidates.length} answers left undecided`);
     } catch (err) {
       if (err instanceof Anthropic.AuthenticationError) {
         this.log('claude validator: invalid or missing API key', err);
@@ -62,19 +65,23 @@ export class ClaudeValidator implements Validator {
   }
 }
 
+/** Map numbered results back onto candidates; returns how many candidates got no verdict. */
 export function applyJudgement(
   judgement: Judgement,
   candidates: Candidate[],
   out: Map<string, Verdict>,
-): void {
-  const known = new Set(candidates.map((c) => c.key));
+): number {
+  let decided = 0;
   for (const r of judgement.results) {
-    if (!known.has(r.id)) continue;
+    const c = candidates[r.id - 1];
+    if (!c || out.has(c.key)) continue;
+    decided += 1;
     out.set(
-      r.id,
+      c.key,
       r.valid
         ? { status: 'valid', source: 'llm' }
         : { status: 'invalid', reason: 'not-a-thing', ...(r.note ? { note: r.note } : {}) },
     );
   }
+  return candidates.length - decided;
 }
