@@ -90,6 +90,8 @@ export type RejectReason = 'letter' | 'not-a-thing' | 'host';
 
 export type Verdict =
   | { status: 'empty' }
+  /** Shown while the fact-checker is still working on this answer. */
+  | { status: 'pending' }
   | { status: 'unverified' }
   | { status: 'valid'; source: VerdictSource }
   | { status: 'invalid'; reason: RejectReason; note?: string };
@@ -124,6 +126,8 @@ export interface RoomState {
   settings: GameSettings;
   players: PlayerPublic[];
   usedLetters: string[];
+  /** Server clock at snapshot time, so clients can correct their countdowns for clock skew. */
+  serverTime: number;
   round: {
     number: number;
     letter: string;
@@ -131,6 +135,8 @@ export interface RoomState {
     endsAt: number | null;
     /** Set once someone calls استپ: who, and the epoch ms when answers lock. */
     stop: { by: string; deadline: number } | null;
+    /** playerId -> how many cells that player has filled with the right letter. */
+    progress: Record<string, number>;
   } | null;
   /** Results of the round currently under review (also kept in history). */
   review: RoundResult | null;

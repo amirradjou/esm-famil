@@ -4,7 +4,6 @@ import {
   scoreRound,
   startsWithLetter,
   type Answers,
-  type CellResult,
   type GameSettings,
   type Phase,
   type PlayerPublic,
@@ -179,7 +178,7 @@ export class Room {
     this.review = null;
     const endsAt =
       this.settings.roundSeconds > 0 ? this.now() + this.settings.roundSeconds * 1000 : null;
-    this.round = { number, letter, endsAt, stop: null };
+    this.round = { number, letter, endsAt, stop: null, progress: {} };
     this.phase = 'playing';
     this.clearTimers();
     if (endsAt !== null) {
@@ -201,8 +200,18 @@ export class Room {
 
   setAnswers(playerId: string, answers: Answers): void {
     if (this.phase !== 'playing' && this.phase !== 'stopping') return;
-    if (!this.players.has(playerId)) return;
-    this.answers.set(playerId, this.sanitize(answers));
+    if (!this.players.has(playerId) || !this.round) return;
+    const clean = this.sanitize(answers);
+    this.answers.set(playerId, clean);
+    // Everyone sees how far the others are, like glancing at the table — but never the words.
+    const letter = this.round.letter;
+    const filled = this.settings.categoryIds.filter((c) =>
+      startsWithLetter(clean[c] ?? '', letter),
+    ).length;
+    if (this.round.progress[playerId] !== filled) {
+      this.round.progress[playerId] = filled;
+      this.changed();
+    }
   }
 
   stop(playerId: string, answers: Answers): void {
@@ -217,7 +226,11 @@ export class Room {
     }
     this.answers.set(playerId, clean);
     const grace = this.settings.stopGraceSeconds * 1000;
-    this.round = { ...this.round, stop: { by: playerId, deadline: this.now() + grace } };
+    this.round = {
+      ...this.round,
+      stop: { by: playerId, deadline: this.now() + grace },
+      progress: { ...this.round.progress, [playerId]: this.settings.categoryIds.length },
+    };
     this.phase = 'stopping';
     this.clearTimers();
     this.stopTimer = setTimeout(() => void this.finalize(), grace);
@@ -234,26 +247,35 @@ export class Room {
   }
 
   /** Lock answers, fact-check them, score, and move to review. Idempotent. */
+  /**
+   * Lock answers, show them to everyone right away, fact-check, score, and move to review.
+   * Idempotent.
+   */
   async finalize(): Promise<void> {
     if ((this.phase !== 'playing' && this.phase !== 'stopping') || !this.round) return;
     this.clearTimers();
-    this.phase = 'validating';
-    this.changed();
-
     const { letter, number, stop } = this.round;
     const playerIds = [...this.players.keys()];
     const candidates: Candidate[] = [];
+    const cells: RoundResult['cells'] = {};
     for (const pid of playerIds) {
       const answers = this.answers.get(pid) ?? {};
       for (const cat of this.settings.categoryIds) {
-        candidates.push({
-          key: `${pid}:${cat}`,
-          categoryId: cat,
-          letter,
-          answer: answers[cat] ?? '',
-        });
+        const answer = answers[cat] ?? '';
+        candidates.push({ key: `${pid}:${cat}`, categoryId: cat, letter, answer });
+        (cells[pid] ??= {})[cat] = {
+          answer,
+          verdict: { status: answer ? 'pending' : 'empty' },
+          points: 0,
+        };
       }
     }
+    // The table is readable while the judge works; verdicts fill in when it is done.
+    const result: RoundResult = { number, letter, stoppedBy: stop?.by ?? null, cells, totals: {} };
+    for (const pid of playerIds) result.totals[pid] = 0;
+    this.review = result;
+    this.phase = 'validating';
+    this.changed();
 
     let verdicts: Map<string, Verdict>;
     try {
@@ -262,21 +284,19 @@ export class Room {
       this.log('validation pipeline failed; treating answers as unverified', err);
       verdicts = new Map();
     }
+    if (this.review !== result) return; // the room was reset while we were judging
 
-    const cells: RoundResult['cells'] = {};
     for (const c of candidates) {
       const [pid, cat] = c.key.split(':') as [string, string];
-      const cell: CellResult = {
-        answer: c.answer,
-        verdict: verdicts.get(c.key) ?? { status: c.answer ? 'unverified' : 'empty' },
-        points: 0,
-      };
-      (cells[pid] ??= {})[cat] = cell;
+      const cell = cells[pid]?.[cat];
+      if (!cell) continue;
+      cell.verdict = verdicts.get(c.key) ?? { status: c.answer ? 'unverified' : 'empty' };
+      if (cell.verdict.status === 'valid' && cell.verdict.source === 'llm') {
+        this.deps.pipeline.learn(cat, c.answer);
+      }
     }
-    const totals = scoreRound(cells, this.settings.categoryIds, this.settings);
-    const result: RoundResult = { number, letter, stoppedBy: stop?.by ?? null, cells, totals };
+    result.totals = scoreRound(cells, this.settings.categoryIds, this.settings);
     this.history.push(result);
-    this.review = result;
     this.recomputeScores();
     this.phase = 'review';
     this.changed();
@@ -291,6 +311,7 @@ export class Room {
     cell.verdict = valid
       ? { status: 'valid', source: 'host' }
       : { status: 'invalid', reason: 'host' };
+    if (valid) this.deps.pipeline.learn(categoryId, cell.answer);
     rescore(this.review, this.settings.categoryIds, this.settings);
     this.recomputeScores();
     this.changed();
@@ -362,6 +383,7 @@ export class Room {
       hostId: this.hostId,
       phase: this.phase,
       server: this.deps.pipeline.capabilities,
+      serverTime: this.now(),
       settings: this.settings,
       players: [...this.players.values()]
         .sort((a, b) => a.joinedAt - b.joinedAt)
