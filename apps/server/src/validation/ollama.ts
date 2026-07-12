@@ -29,7 +29,10 @@ const JSON_SCHEMA = {
   required: ['results'],
 };
 
-/** Local fallback for development without an API key: any Ollama chat model with JSON mode. */
+/** Keep the model resident between rounds; reloading it is most of the latency on a CPU box. */
+const KEEP_ALIVE = '1h';
+
+/** Local judge without an API key: any Ollama chat model that supports JSON-schema output. */
 export class OllamaValidator implements Validator {
   readonly name = 'ollama';
 
@@ -38,6 +41,20 @@ export class OllamaValidator implements Validator {
     private readonly model: string,
     private readonly log: (msg: string, err?: unknown) => void = () => {},
   ) {}
+
+  async warmUp(): Promise<void> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: this.model, prompt: '', keep_alive: KEEP_ALIVE }),
+        signal: AbortSignal.timeout(120_000),
+      });
+      if (!res.ok) this.log(`ollama warm-up: HTTP ${res.status} (is the model pulled?)`);
+    } catch (err) {
+      this.log('ollama warm-up failed; first round will be slower', err);
+    }
+  }
 
   async check(candidates: Candidate[]): Promise<Map<string, Verdict>> {
     const out = new Map<string, Verdict>();
@@ -49,6 +66,8 @@ export class OllamaValidator implements Validator {
         body: JSON.stringify({
           model: this.model,
           stream: false,
+          keep_alive: KEEP_ALIVE,
+          options: { temperature: 0 },
           format: JSON_SCHEMA,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
