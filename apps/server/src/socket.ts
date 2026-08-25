@@ -7,6 +7,18 @@ import type { RoomManager } from './rooms.js';
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+/** Phases in which a newcomer can still sit down at the table (they play from the next round). */
+const JOINABLE = new Set(['lobby', 'review', 'finished']);
+
+const CREATE_WINDOW_MS = 60_000;
+const CREATE_LIMIT = 10;
+
+function clientIp(socket: Sock): string {
+  const fwd = socket.handshake.headers['x-forwarded-for'];
+  const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0];
+  return first?.trim() || socket.handshake.address;
+}
+
 interface Bound {
   room: Room;
   playerId: string;
@@ -45,6 +57,17 @@ export function attachSocketHandlers(
   const broadcast = (room: Room) => io.to(room.id).emit('room:state', room.toState());
   rooms.setBroadcast(broadcast);
 
+  // The server is on the open internet: cap how fast one address can open rooms.
+  const creations = new Map<string, number[]>();
+  const allowCreate = (ip: string): boolean => {
+    const now = Date.now();
+    const recent = (creations.get(ip) ?? []).filter((t) => now - t < CREATE_WINDOW_MS);
+    if (recent.length >= CREATE_LIMIT) return false;
+    recent.push(now);
+    creations.set(ip, recent);
+    return true;
+  };
+
   const withAck = <T = undefined>(ack: (r: Ack<T>) => void, fn: () => T | void): void => {
     try {
       const data = fn();
@@ -82,6 +105,8 @@ export function attachSocketHandlers(
   io.on('connection', (socket) => {
     socket.on('room:create', ({ name }, ack) =>
       withAck(ack, () => {
+        if (!allowCreate(clientIp(socket)))
+          throw new RoomError('bad-request', 'اتاق‌های زیادی ساخته‌اید؛ یک دقیقه صبر کنید');
         const room = rooms.create();
         const player = room.addPlayer(String(name ?? ''));
         return bind(socket, room, player.id);
@@ -92,8 +117,8 @@ export function attachSocketHandlers(
       withAck(ack, () => {
         const room = rooms.get(String(roomId ?? ''));
         if (!room) throw new RoomError('room-not-found', 'اتاقی با این کد پیدا نشد');
-        if (room.phase !== 'lobby')
-          throw new RoomError('bad-state', 'بازی شروع شده؛ منتظر دور بعد بمانید');
+        if (!JOINABLE.has(room.phase))
+          throw new RoomError('bad-state', 'دور در جریان است؛ بین دو دور دوباره امتحان کنید');
         const player = room.addPlayer(String(name ?? ''));
         return bind(socket, room, player.id);
       }),
