@@ -12,11 +12,21 @@ const JOINABLE = new Set(['lobby', 'review', 'finished']);
 
 const CREATE_WINDOW_MS = 60_000;
 const CREATE_LIMIT = 10;
+const MAX_TRACKED_IPS = 10_000;
 
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+/**
+ * The address to rate-limit on. X-Forwarded-For is only believed when the connection itself
+ * comes from loopback, i.e. from a reverse proxy on this machine (Tailscale Funnel, nginx);
+ * a client connecting directly cannot spoof its way past the limit.
+ */
 function clientIp(socket: Sock): string {
+  const direct = socket.handshake.address;
+  if (!LOOPBACK.has(direct)) return direct;
   const fwd = socket.handshake.headers['x-forwarded-for'];
-  const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0];
-  return first?.trim() || socket.handshake.address;
+  const first = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0]?.trim();
+  return first || direct;
 }
 
 interface Bound {
@@ -61,6 +71,12 @@ export function attachSocketHandlers(
   const creations = new Map<string, number[]>();
   const allowCreate = (ip: string): boolean => {
     const now = Date.now();
+    if (creations.size >= MAX_TRACKED_IPS) {
+      // Forget addresses whose window has passed; if it is still full, refuse rather than grow.
+      for (const [k, ts] of creations)
+        if (now - (ts.at(-1) ?? 0) >= CREATE_WINDOW_MS) creations.delete(k);
+      if (creations.size >= MAX_TRACKED_IPS && !creations.has(ip)) return false;
+    }
     const recent = (creations.get(ip) ?? []).filter((t) => now - t < CREATE_WINDOW_MS);
     if (recent.length >= CREATE_LIMIT) return false;
     recent.push(now);

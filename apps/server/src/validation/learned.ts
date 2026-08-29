@@ -6,10 +6,15 @@ import { normalize } from '@esm-famil/shared';
  * Answers the LLM judge or a host approved, kept on disk so the word database grows with
  * play and the same word is instant (and free) next time. One JSON file per category.
  */
+/** Per category; the bundled lists are a few hundred to a thousand, so this is ample headroom. */
+const MAX_PER_CATEGORY = 5000;
+const MAX_WORD_LENGTH = 40;
+
 export class LearnedWords {
   private readonly words = new Map<string, Set<string>>();
   private dirty = new Set<string>();
   private timer: NodeJS.Timeout | null = null;
+  private readonly warnedFull = new Set<string>();
 
   constructor(
     private readonly dir: string,
@@ -47,8 +52,17 @@ export class LearnedWords {
 
   add(category: string, answer: string): void {
     const n = normalize(answer);
-    if (!n || this.setFor(category).has(n)) return;
-    this.setFor(category).add(n);
+    if (!n || n.length > MAX_WORD_LENGTH || !/^[a-z0-9_-]+$/i.test(category)) return;
+    const set = this.setFor(category);
+    if (set.has(n)) return;
+    if (set.size >= MAX_PER_CATEGORY) {
+      if (!this.warnedFull.has(category)) {
+        this.warnedFull.add(category);
+        this.log(`learned words: ${category} is full (${MAX_PER_CATEGORY}); not learning more`);
+      }
+      return;
+    }
+    set.add(n);
     this.dirty.add(category);
     this.timer ??= setTimeout(() => this.flush(), 2000);
   }
