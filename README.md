@@ -21,6 +21,13 @@ a random letter is drawn, everyone fills in a word per category, and the first t
      reason. Available when the server is started with an `LLM_PROVIDER`.
 
   In both modes the host can flip any verdict in the review screen and scores recompute live.
+  Answers the judge or the host approve are remembered (`DATA_DIR/learned/`), so the database
+  grows with every game and the same word is instant next time.
+
+- Game-night details: everyone sees how many cells the others have filled while the clock runs,
+  the answer sheet opens the moment a round locks (verdicts fill in while the judge thinks),
+  a page refresh keeps what you typed, latecomers can join between rounds, invites go through
+  the phone's share sheet, and the app installs from the browser menu.
 
 ## Screenshots
 

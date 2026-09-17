@@ -96,6 +96,7 @@ await host.getByRole('button', { name: 'شروع بازی' }).click();
 await guest.getByRole('button', { name: 'استپ!' }).waitFor();
 for (const [cat, word] of Object.entries(GUEST)) await guest.locator(`#cat-${cat}`).fill(word);
 for (const [cat, word] of Object.entries(HOST)) await host.locator(`#cat-${cat}`).fill(word);
+await host.getByText(`رضا ${'۱۰'}/${'۱۰'}`).waitFor(); // the guest's autosave has landed
 await shot(host, '3-round', false);
 await host.getByRole('button', { name: 'استپ!' }).click();
 await guest.getByRole('status').waitFor();
