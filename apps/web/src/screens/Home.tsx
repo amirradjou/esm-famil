@@ -1,17 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { useGame } from '../game';
 import { Page } from '../components/ui';
-
-const NAME_KEY = 'esm-famil.name';
+import { KEYS, storage } from '../storage';
 
 export function Home() {
   const { create, join } = useGame();
   const params = new URLSearchParams(window.location.search);
-  const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '');
+  const [name, setName] = useState(() => storage.get(KEYS.name) ?? '');
   const [code, setCode] = useState(params.get('room') ?? '');
   const [busy, setBusy] = useState(false);
 
-  const remember = () => localStorage.setItem(NAME_KEY, name.trim());
+  const remember = () => storage.set(KEYS.name, name.trim());
 
   const onCreate = async () => {
     setBusy(true);
