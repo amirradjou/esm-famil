@@ -4,7 +4,7 @@ import {
   RARE_LETTERS,
   type GameSettings,
 } from '@esm-famil/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { num } from '../format';
 import { useGame } from '../game';
 import { Page } from '../components/ui';
@@ -12,8 +12,12 @@ import { Page } from '../components/ui';
 export function Lobby() {
   const { state, me, isHost, updateSettings, start, leave, kick } = useGame();
   const [copied, setCopied] = useState(false);
+  // Quick successive toggles must build on the last patch, not on the last snapshot rendered.
+  const latest = useRef<GameSettings | null>(null);
   if (!state || !me) return null;
   const s = state.settings;
+  const llm = state.server.llm;
+  latest.current = { ...latest.current, ...s };
 
   const inviteUrl = `${window.location.origin}/?room=${state.id}`;
   const copy = async () => {
@@ -26,9 +30,14 @@ export function Lobby() {
     }
   };
 
-  const patch = (p: Partial<GameSettings>) => void updateSettings(p);
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+  const patch = (p: Partial<GameSettings>) => {
+    latest.current = { ...(latest.current ?? s), ...p };
+    void updateSettings(p);
+  };
+  const toggle = (key: 'categoryIds' | 'letterPool', id: string) => {
+    const list = (latest.current ?? s)[key];
+    patch({ [key]: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] });
+  };
 
   return (
     <Page>
@@ -94,7 +103,7 @@ export function Lobby() {
                   key={c.id}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => patch({ categoryIds: toggle(s.categoryIds, c.id) })}
+                  onClick={() => toggle('categoryIds', c.id)}
                   className={`rounded-[6px] border-[1.5px] px-3 py-1 ${
                     on ? 'border-ink bg-ink text-paper' : 'border-rule text-ink-soft'
                   }`}
@@ -118,7 +127,7 @@ export function Lobby() {
                   type="button"
                   aria-pressed={on}
                   title={rare ? 'حرف کم‌کاربرد' : undefined}
-                  onClick={() => patch({ letterPool: toggle(s.letterPool, l) })}
+                  onClick={() => toggle('letterPool', l)}
                   className={`h-9 w-9 rounded-[6px] border-[1.5px] text-lg font-bold ${
                     on ? 'border-pen text-pen' : 'border-rule text-ink-soft opacity-60'
                   }`}
@@ -158,7 +167,37 @@ export function Lobby() {
           />
         </div>
 
+        <fieldset disabled={!isHost} className="flex flex-col gap-2">
+          <legend className="text-ink-soft mb-2 text-sm">راستی‌آزمایی جواب‌ها</legend>
+          <Mode
+            selected={!s.llmJudge}
+            title="فقط پایگاه واژگان"
+            hint="هر جواب با فهرست کلمه‌های بازی مقایسه می‌شود. کلمه‌ای که در فهرست نباشد «تشخیص داده نشد» می‌گیرد."
+            onSelect={() => patch({ llmJudge: false })}
+          />
+          <Mode
+            selected={s.llmJudge}
+            disabled={!llm.available}
+            title="پایگاه واژگان + داور هوش مصنوعی"
+            hint={
+              llm.available
+                ? `کلمه‌هایی که در فهرست نیستند را ${llm.model} داوری می‌کند.`
+                : 'روی این سرور مدل زبانی تنظیم نشده است.'
+            }
+            onSelect={() => patch({ llmJudge: true })}
+          />
+        </fieldset>
+
         <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              disabled={!isHost}
+              checked={s.unverifiedPolicy === 'accept'}
+              onChange={(e) => patch({ unverifiedPolicy: e.target.checked ? 'accept' : 'reject' })}
+            />
+            <span>جوابی که تشخیص داده نشد، درست حساب شود (میزبان می‌تواند بعداً تغییرش دهد)</span>
+          </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -167,15 +206,6 @@ export function Lobby() {
               onChange={(e) => patch({ soloBonus: e.target.checked })}
             />
             <span>اگر فقط یک نفر ستونی را درست پر کند ۲۰ امتیاز بگیرد</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              disabled={!isHost}
-              checked={s.unverifiedPolicy === 'accept'}
-              onChange={(e) => patch({ unverifiedPolicy: e.target.checked ? 'accept' : 'reject' })}
-            />
-            <span>جوابی که راستی‌آزما نتوانست تشخیص دهد، درست حساب شود</span>
           </label>
         </div>
       </section>
@@ -192,6 +222,38 @@ export function Lobby() {
         <p className="text-ink-soft text-center">منتظر میزبان برای شروع…</p>
       )}
     </Page>
+  );
+}
+
+function Mode(props: {
+  selected: boolean;
+  disabled?: boolean;
+  title: string;
+  hint: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={props.selected}
+      disabled={props.disabled}
+      onClick={props.onSelect}
+      className={`flex items-start gap-3 rounded-[6px] border-[1.5px] p-3 text-right transition-colors disabled:opacity-50 ${
+        props.selected ? 'border-ink' : 'border-rule'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`mt-1 inline-block h-4 w-4 shrink-0 rounded-full border-[1.5px] ${
+          props.selected ? 'border-ink bg-ink' : 'border-rule'
+        }`}
+      />
+      <span>
+        <span className="block font-bold">{props.title}</span>
+        <span className="text-ink-soft block text-sm">{props.hint}</span>
+      </span>
+    </button>
   );
 }
 
