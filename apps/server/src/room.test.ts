@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Verdict } from '@esm-famil/shared';
-import { Room, RoomError } from './room.js';
+import { RoomError } from './errors.js';
+import { Room } from './room.js';
 import { ValidationPipeline, WordListValidator, type Candidate } from './validation/index.js';
 
 /** Accepts everything the word lists don't know, so tests are deterministic and offline. */
