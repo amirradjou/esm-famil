@@ -9,7 +9,11 @@ const acceptAll = {
   check: async (cs: Candidate[]) =>
     new Map<string, Verdict>(cs.map((c) => [c.key, { status: 'valid', source: 'llm' }])),
 };
-const pipeline = new ValidationPipeline([new WordListValidator(), acceptAll]);
+const pipeline = new ValidationPipeline([new WordListValidator()], {
+  validator: acceptAll,
+  provider: 'stub',
+  model: 'stub',
+});
 
 function makeRoom(random = () => 0) {
   const changes: string[] = [];
@@ -47,6 +51,40 @@ describe('Room', () => {
     expect(room.settings.totalRounds).toBe(20);
     expect(room.settings.categoryIds).toEqual(['name', 'city']);
     expect(() => room.updateSettings(host.id, { categoryIds: ['name'] })).toThrow(/دو دسته/);
+  });
+
+  it('defaults the LLM judge to the server capability and refuses to enable it without one', () => {
+    const { room } = makeRoom();
+    const host = room.addPlayer('host');
+    expect(room.settings.llmJudge).toBe(true);
+    room.updateSettings(host.id, { llmJudge: false });
+    expect(room.settings.llmJudge).toBe(false);
+    expect(room.toState().server.llm).toMatchObject({ available: true, provider: 'stub' });
+
+    const noLlm = new Room('NOLLM', {
+      pipeline: new ValidationPipeline([new WordListValidator()]),
+      onChange: () => {},
+    });
+    const h = noLlm.addPlayer('host');
+    expect(noLlm.settings.llmJudge).toBe(false);
+    expect(() => noLlm.updateSettings(h.id, { llmJudge: true })).toThrow(/داور/);
+  });
+
+  it('skips the LLM judge when the room turned it off', async () => {
+    const { room } = makeRoom();
+    const host = room.addPlayer('host');
+    room.addPlayer('guest');
+    room.updateSettings(host.id, {
+      letterPool: ['ب'],
+      categoryIds: ['name', 'color'],
+      stopGraceSeconds: 0,
+      llmJudge: false,
+    });
+    room.startRound(host.id);
+    room.stop(host.id, { name: 'بابک', color: 'بلبل' });
+    await vi.advanceTimersByTimeAsync(0);
+    await flush();
+    expect(room.review!.cells[host.id]!.color!.verdict).toEqual({ status: 'unverified' });
   });
 
   it('needs two players to start and picks an unused letter from the pool', () => {
