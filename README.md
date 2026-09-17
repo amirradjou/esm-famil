@@ -12,16 +12,37 @@ a random letter is drawn, everyone fills in a word per category, and the first t
 - A round ends when someone calls استپ (others get a short grace period) or when the round timer runs out.
 - Scoring per cell: valid answer nobody else wrote **10**, valid answer someone else also wrote **5**,
   the only valid answer in the column **20** (optional), empty / invalid **0**.
-- Fact-checking runs in tiers: the answer must start with the letter → bundled Persian word lists →
-  a surname heuristic for فامیل → an LLM referee for everything else (Claude via the Anthropic API,
-  or a local Ollama model). Undecided answers are flagged, and the host can flip any verdict in the
-  review screen.
+- Fact-checking has two modes the host picks per room:
+  1. **Word database only** — the answer must start with the letter and match the bundled Persian
+     word database (≈4,700 entries across the 12 categories, plus a surname heuristic for فامیل).
+     Anything unknown is flagged «تشخیص داده نشد» and counted according to the room's policy.
+  2. **Word database + LLM judge** — the same, but unknown answers are sent to a language model
+     (Claude through the Anthropic API, or a local Ollama model) that rules on them with a short
+     reason. Available when the server is started with an `LLM_PROVIDER`.
+
+  In both modes the host can flip any verdict in the review screen and scores recompute live.
+
+## Screenshots
+
+| Home                                 | Lobby (host settings)                  | Round                                  |
+| ------------------------------------ | -------------------------------------- | -------------------------------------- |
+| ![Home](docs/screenshots/1-home.png) | ![Lobby](docs/screenshots/2-lobby.png) | ![Round](docs/screenshots/3-round.png) |
+
+| Someone called استپ                  | Review with the LLM judge                | Final                                  |
+| ------------------------------------ | ---------------------------------------- | -------------------------------------- |
+| ![Stop](docs/screenshots/4-stop.png) | ![Review](docs/screenshots/5-review.png) | ![Final](docs/screenshots/6-final.png) |
+
+![Review on a wide screen](docs/screenshots/5-review-desktop.png)
+
+The review above was judged by a local `qwen2.5:3b` through Ollama: «بلخ» is not in the city list
+and was accepted by the model, «بلبل» as a colour was rejected with its reason. Regenerate the
+images against a running server with `node scripts/screenshots.mjs http://localhost:3000`.
 
 ## Getting started
 
 ```sh
 pnpm install
-cp .env.example .env      # optional: pick a fact-checker (VALIDATOR=claude needs ANTHROPIC_API_KEY)
+cp .env.example .env      # optional: LLM_PROVIDER=claude (needs ANTHROPIC_API_KEY) or =ollama
 pnpm dev                  # web on http://localhost:5173, API on :3000
 ```
 

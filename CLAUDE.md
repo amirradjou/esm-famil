@@ -29,10 +29,14 @@ calls «استپ», and the server fact-checks and scores the answers.
   scoring rules (`scoring.ts`), and the socket protocol / `RoomState` types (`protocol.ts`).
 - `apps/server/` — Fastify + socket.io. `room.ts` is the whole game state machine (pure, tested with
   fake timers); `socket.ts` only maps events to room methods; `validation/` is the fact-checker:
-  letter rule → bundled word lists (`validation/data/*.json`) → surname heuristic → LLM
-  (`claude.ts` via the Anthropic SDK, or `ollama.ts` for local dev) → `unverified`.
+  letter rule → bundled word database (`validation/data/*.json`) → surname heuristic → LLM judge
+  (`claude.ts` via the Anthropic SDK, or `ollama.ts` for local dev) → `unverified`. The LLM tier
+  exists only when the server has `LLM_PROVIDER` set, and runs only for rooms whose host chose
+  `settings.llmJudge`; the snapshot's `server.llm` tells clients whether it can be offered.
 - `apps/web/` — React 19 + Vite + Tailwind v4, RTL Persian UI. `game.tsx` holds the socket
   session and exposes `useGame()`; `screens/` are one component per game phase.
+- `scripts/screenshots.mjs` — headless two-player playthrough that regenerates `docs/screenshots/`
+  (run against a live server; use an Ollama/Claude judge so the review shows LLM verdicts).
 
 ## Conventions
 
@@ -54,5 +58,10 @@ calls «استپ», and the server fact-checks and scores the answers.
   at startup and a rebuilt bundle hash 404s.
 - A player can have several tabs open; `socket.ts` counts sockets per player and only tells the
   room about a disconnect when the last one closes (otherwise the host role silently moves).
-- Fact-checking with `VALIDATOR=none` accepts anything the word lists don't know (`unverified`,
-  policy `accept`); the host can still override any cell in the review screen.
+- Without an `LLM_PROVIDER`, unknown answers stay `unverified` (policy `accept` by default); the
+  host can still override any cell in the review screen.
+- Screen components must call every hook before the `if (!state || !me) return null` guard —
+  the create path renders the lobby once before the session is known, and a hook after the guard
+  trips React error #310.
+- Rapid setting toggles in the lobby build on `latest.current` (last patch sent), not on the
+  rendered snapshot, otherwise fast clicks lose updates while the server echo is in flight.
