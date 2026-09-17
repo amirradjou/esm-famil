@@ -1,0 +1,25 @@
+{
+  "name": "esm-famil",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Online multiplayer اسم فامیل (Persian Scattergories) with a host/join lobby and answer fact-checking",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@12.4.2",
+  "scripts": {
+    "predev": "pnpm --filter @esm-famil/shared build",
+    "dev": "pnpm -r --parallel --stream dev",
+    "build": "pnpm -r --filter @esm-famil/shared build && pnpm -r --filter @esm-famil/web --filter @esm-famil/server build",
+    "start": "pnpm --filter @esm-famil/server start",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "prettier --check . && pnpm typecheck",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.7",
+    "typescript": "^5.9.3"
+  }
+}

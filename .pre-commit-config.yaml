@@ -1,0 +1,19 @@
+# Install once per clone:  pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+  # Language-specific hooks are appended by /new-project (ruff, prettier, gofmt, rustfmt…)
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        additional_dependencies: ['prettier@3.9.7']
+        exclude: ^(pnpm-lock\.yaml|apps/server/src/validation/data/.*\.json)$
