@@ -79,6 +79,8 @@ export class Room {
     this.now = deps.now ?? Date.now;
     this.random = deps.random ?? Math.random;
     this.log = deps.log ?? (() => {});
+    // Judge with the LLM by default whenever the server has one.
+    this.settings.llmJudge = deps.pipeline.capabilities.llm.available;
   }
 
   // ---- players -------------------------------------------------------------
@@ -183,6 +185,11 @@ export class Room {
     if (patch.totalRounds !== undefined)
       next.totalRounds = clampInt(patch.totalRounds, 1, 20, 'تعداد دور');
     if (patch.soloBonus !== undefined) next.soloBonus = Boolean(patch.soloBonus);
+    if (patch.llmJudge !== undefined) {
+      if (patch.llmJudge && !this.deps.pipeline.capabilities.llm.available)
+        throw new RoomError('bad-request', 'روی این سرور داور هوش مصنوعی تنظیم نشده');
+      next.llmJudge = Boolean(patch.llmJudge);
+    }
     if (patch.unverifiedPolicy !== undefined) {
       if (patch.unverifiedPolicy !== 'accept' && patch.unverifiedPolicy !== 'reject')
         throw new RoomError('bad-request', 'سیاست نامعتبر');
@@ -288,7 +295,7 @@ export class Room {
 
     let verdicts: Map<string, Verdict>;
     try {
-      verdicts = await this.deps.pipeline.judge(candidates);
+      verdicts = await this.deps.pipeline.judge(candidates, this.settings.llmJudge);
     } catch (err) {
       this.log('validation pipeline failed; treating answers as unverified', err);
       verdicts = new Map();
@@ -392,6 +399,7 @@ export class Room {
       id: this.id,
       hostId: this.hostId,
       phase: this.phase,
+      server: this.deps.pipeline.capabilities,
       settings: this.settings,
       players: [...this.players.values()]
         .sort((a, b) => a.joinedAt - b.joinedAt)

@@ -17,7 +17,7 @@ const log = (msg: string, err?: unknown) => (err ? app.log.error({ err }, msg) :
 
 await app.register(cors, { origin: config.corsOrigins });
 
-app.get('/healthz', async () => ({ ok: true, rooms: rooms.size, validator: config.validator }));
+app.get('/healthz', async () => ({ ok: true, rooms: rooms.size, llm: pipeline.capabilities.llm }));
 
 // In production the server also serves the built web app (see Dockerfile).
 const here = dirname(fileURLToPath(import.meta.url));
@@ -28,7 +28,8 @@ if (existsSync(staticDir)) {
   app.log.info(`serving web app from ${staticDir}`);
 }
 
-const rooms = new RoomManager({ pipeline: buildPipeline(config, log), log });
+const pipeline = buildPipeline(config, log);
+const rooms = new RoomManager({ pipeline, log });
 rooms.startSweeper();
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(app.server, {
@@ -42,6 +43,7 @@ app.addHook('onClose', async () => {
 });
 
 await app.listen({ port: config.port, host: config.host });
+const llm = pipeline.capabilities.llm;
 app.log.info(
-  `fact-checker: word lists${config.validator === 'none' ? '' : ` + ${config.validator}`}`,
+  `fact-checker: word database${llm.available ? ` + ${llm.provider} judge (${llm.model})` : ' only (no LLM judge configured)'}`,
 );

@@ -17,6 +17,11 @@ export interface GameSettings {
   totalRounds: number;
   /** Award 20 instead of 10 when only one player has a valid answer in a column. */
   soloBonus: boolean;
+  /**
+   * Fact-checking mode. `false`: word database only. `true`: answers the database does not
+   * know are sent to the LLM judge (only possible when the server has one configured).
+   */
+  llmJudge: boolean;
   /** What to do with answers the fact-checker could not decide on. */
   unverifiedPolicy: 'accept' | 'reject';
 }
@@ -66,6 +71,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   stopGraceSeconds: 5,
   totalRounds: 5,
   soloBonus: true,
+  llmJudge: false,
   unverifiedPolicy: 'accept',
 };
 
@@ -101,10 +107,16 @@ export interface RoundResult {
   totals: Record<string, number>;
 }
 
+export interface ServerCapabilities {
+  /** Whether an LLM judge is configured on the server, and which one. */
+  llm: { available: false } | { available: true; provider: string; model: string };
+}
+
 export interface RoomState {
   id: string;
   hostId: string;
   phase: Phase;
+  server: ServerCapabilities;
   settings: GameSettings;
   players: PlayerPublic[];
   usedLetters: string[];
