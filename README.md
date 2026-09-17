@@ -63,4 +63,14 @@ pnpm format
 ```
 
 Layout: `packages/shared` (rules, protocol types), `apps/server` (Fastify + socket.io game server),
-`apps/web` (React + Vite + Tailwind, RTL). See `CLAUDE.md` for the design notes.
+`apps/web` (React + Vite + Tailwind, RTL). [docs/architecture.md](docs/architecture.md) walks
+through the state machine, the fact-checking tiers and the protocol.
+
+## Workflow
+
+- Work on a branch, open a pull request, let CI (build · lint · test, then a Docker image
+  smoke test) go green, merge. `main` only moves through pull requests.
+- Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`, `build:`),
+  scoped by package when useful (`feat(web): …`).
+- `pre-commit install` once per clone: prettier and the basic hygiene hooks run on every commit.
+- Screenshots in `docs/screenshots/` come from `pnpm screenshots <url>` against a running server.

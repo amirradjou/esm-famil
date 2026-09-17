@@ -18,25 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { socket } from './socket';
-
-const SESSION_KEY = 'esm-famil.session';
-
-function loadSession(): Session | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
-  } catch {
-    return null;
-  }
-}
-function saveSession(s: Session | null) {
-  try {
-    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* private mode: the game still works for this tab */
-  }
-}
+import { KEYS, storage } from './storage';
 
 interface GameContextValue {
   state: RoomState | null;
@@ -66,14 +48,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<RoomState | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<ErrorPayload | null>(null);
-  const [session, setSessionState] = useState<Session | null>(loadSession);
+  const [session, setSessionState] = useState<Session | null>(() =>
+    storage.getJson<Session>(KEYS.session),
+  );
   // The connect handler runs outside React's render cycle, so it reads the ref.
   const sessionRef = useRef(session);
   const [resuming, setResuming] = useState(session !== null);
   const setSession = useCallback((s: Session | null) => {
     sessionRef.current = s;
     setSessionState(s);
-    saveSession(s);
+    storage.setJson(KEYS.session, s);
   }, []);
 
   useEffect(() => {
@@ -169,15 +153,4 @@ export function useGame(): GameContextValue {
   const ctx = useContext(GameContext);
   if (!ctx) throw new Error('useGame must be used inside <GameProvider>');
   return ctx;
-}
-
-/** Wall-clock ticker for countdowns; re-renders every 250ms while `active`. */
-export function useNow(active: boolean): number {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, [active]);
-  return now;
 }

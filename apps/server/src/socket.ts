@@ -1,6 +1,7 @@
 import type { Ack, ClientToServerEvents, ServerToClientEvents, Session } from '@esm-famil/shared';
 import type { Server, Socket } from 'socket.io';
-import { RoomError, type Room } from './room.js';
+import { RoomError } from './errors.js';
+import type { Room } from './room.js';
 import type { RoomManager } from './rooms.js';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;

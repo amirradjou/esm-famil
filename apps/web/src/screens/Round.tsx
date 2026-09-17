@@ -1,7 +1,8 @@
 import { categoryLabel, startsWithLetter, type Answers } from '@esm-famil/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mmss, num } from '../format';
-import { useGame, useNow } from '../game';
+import { useGame } from '../game';
+import { useNow } from '../hooks';
 import { Letter, Page } from '../components/ui';
 
 export function Round() {
