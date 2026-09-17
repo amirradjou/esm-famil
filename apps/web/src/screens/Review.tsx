@@ -11,6 +11,7 @@ export function Review() {
   const players = state.players;
   const stopper = players.find((p) => p.id === r.stoppedBy);
   const last = r.number >= state.settings.totalRounds;
+  const judging = state.phase === 'validating';
 
   return (
     <Page wide>
@@ -20,7 +21,9 @@ export function Review() {
             دور {num(r.number)} از {num(state.settings.totalRounds)}
             {stopper ? ` · ${stopper.name} استپ زد` : ' · زمان تمام شد'}
           </p>
-          <h2 className="text-2xl font-black">نتیجه‌ی این دور</h2>
+          <h2 className="text-2xl font-black">
+            {judging ? 'جواب‌های این دور' : 'نتیجه‌ی این دور'}
+          </h2>
         </div>
         <Letter letter={r.letter} />
       </header>
@@ -50,7 +53,7 @@ export function Review() {
                       {cell && (
                         <VerdictCell
                           cell={cell}
-                          canOverride={isHost && cell.verdict.status !== 'empty'}
+                          canOverride={isHost && !judging && cell.verdict.status !== 'empty'}
                           onOverride={(valid) => override(p.id, cat, valid)}
                         />
                       )}
@@ -84,12 +87,16 @@ export function Review() {
       </div>
 
       <p className="text-ink-soft text-sm">
-        {isHost
-          ? 'اگر با حکم راستی‌آزما مخالفید، روی جواب بزنید تا درست یا غلطش کنید.'
-          : 'میزبان می‌تواند حکم راستی‌آزما را تغییر دهد.'}
+        {judging
+          ? 'راستی‌آزما دارد جواب‌ها را بررسی می‌کند؛ امتیازها چند لحظه‌ی دیگر می‌آیند.'
+          : isHost
+            ? 'اگر با حکم راستی‌آزما مخالفید، روی جواب بزنید تا درست یا غلطش کنید.'
+            : 'میزبان می‌تواند حکم راستی‌آزما را تغییر دهد.'}
       </p>
 
-      {isHost ? (
+      {judging ? (
+        <p className="text-ink-soft animate-pulse text-center">در حال داوری…</p>
+      ) : isHost ? (
         <button className="btn btn-marker text-xl" onClick={next}>
           {last ? 'نتیجه‌ی نهایی' : 'دور بعد'}
         </button>

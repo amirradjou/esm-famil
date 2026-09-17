@@ -1,4 +1,5 @@
 import { customAlphabet } from 'nanoid';
+import { RoomError } from './errors.js';
 import { Room, type RoomDeps } from './room.js';
 
 // No 0/O/1/I so codes are easy to read out loud.
@@ -13,7 +14,10 @@ export class RoomManager {
 
   private broadcast: (room: Room) => void = () => {};
 
-  constructor(private readonly deps: Omit<RoomDeps, 'onClosed' | 'onChange'>) {}
+  constructor(
+    private readonly deps: Omit<RoomDeps, 'onClosed' | 'onChange'>,
+    private readonly maxRooms = 500,
+  ) {}
 
   /** The transport registers how snapshots reach clients. */
   setBroadcast(fn: (room: Room) => void): void {
@@ -21,6 +25,8 @@ export class RoomManager {
   }
 
   create(): Room {
+    if (this.rooms.size >= this.maxRooms)
+      throw new RoomError('bad-state', 'سرور فعلاً پر است؛ کمی بعد دوباره امتحان کنید');
     let id = roomCode();
     while (this.rooms.has(id)) id = roomCode();
     const room = new Room(id, {

@@ -10,7 +10,21 @@ export function Lobby() {
   if (!state || !me) return null;
 
   const inviteUrl = `${window.location.origin}/?room=${state.id}`;
-  const copy = async () => {
+  const canShare = typeof navigator.share === 'function';
+  const invite = async () => {
+    // Phones get the native share sheet; desktops copy the link.
+    if (canShare) {
+      try {
+        await navigator.share({
+          title: 'اسم فامیل',
+          text: `بیا اسم فامیل بازی کنیم — کد اتاق ${state.id}`,
+          url: inviteUrl,
+        });
+        return;
+      } catch {
+        /* dismissed; fall through to copying */
+      }
+    }
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
@@ -30,8 +44,8 @@ export function Lobby() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-quiet" onClick={copy}>
-            {copied ? 'کپی شد' : 'کپی لینک دعوت'}
+          <button className="btn btn-quiet" onClick={invite}>
+            {copied ? 'کپی شد' : canShare ? 'دعوت دوستان' : 'کپی لینک دعوت'}
           </button>
           <button className="btn btn-quiet" onClick={leave}>
             خروج

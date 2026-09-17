@@ -244,3 +244,93 @@ describe('Room', () => {
     expect(room.players.get(host.id)!.connected).toBe(true);
   });
 });
+
+describe('Room — game-night polish', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('broadcasts per-player progress without revealing answers', () => {
+    const { room, changes } = makeRoom();
+    const host = room.addPlayer('host');
+    const guest = room.addPlayer('guest');
+    room.updateSettings(host.id, { letterPool: ['ب'], categoryIds: ['name', 'city', 'color'] });
+    room.startRound(host.id);
+    const before = changes.length;
+    room.setAnswers(guest.id, { name: 'بابک', city: 'تهران', color: '' });
+    expect(room.toState().round?.progress[guest.id]).toBe(1); // تهران has the wrong letter
+    expect(changes.length).toBe(before + 1);
+    room.setAnswers(guest.id, { name: 'بابک', city: 'تهران', color: '' });
+    expect(changes.length).toBe(before + 1); // unchanged count -> no broadcast
+    expect(JSON.stringify(room.toState())).not.toContain('بابک');
+  });
+
+  it("shows everyone's answers as pending while the judge is working", async () => {
+    let release!: () => void;
+    const slow = {
+      name: 'slow',
+      check: () =>
+        new Promise<Map<string, Verdict>>((resolve) => {
+          release = () => resolve(new Map());
+        }),
+    };
+    const room = new Room('SLOW', {
+      pipeline: new ValidationPipeline([new WordListValidator(), slow]),
+      onChange: () => {},
+    });
+    const host = room.addPlayer('host');
+    const guest = room.addPlayer('guest');
+    room.updateSettings(host.id, {
+      letterPool: ['ب'],
+      categoryIds: ['name', 'city'],
+      stopGraceSeconds: 0,
+    });
+    room.startRound(host.id);
+    room.setAnswers(guest.id, { name: 'بهرام', city: '' });
+    room.stop(host.id, { name: 'بابک', city: 'بلخ' });
+    await vi.advanceTimersByTimeAsync(0);
+    await flush();
+    expect(room.phase).toBe('validating');
+    expect(room.review?.cells[host.id]?.city).toMatchObject({
+      answer: 'بلخ',
+      verdict: { status: 'pending' },
+    });
+    expect(room.review?.cells[guest.id]?.city?.verdict).toEqual({ status: 'empty' });
+    release();
+    await flush();
+    expect(room.phase).toBe('review');
+    expect(room.review?.cells[host.id]?.city?.verdict).toEqual({ status: 'unverified' });
+    expect(room.history).toHaveLength(1);
+  });
+
+  it('remembers answers the LLM or the host approved', async () => {
+    const learned = { added: [] as string[] };
+    const llm = {
+      name: 'llm',
+      check: async (cs: Candidate[]) =>
+        new Map<string, Verdict>(cs.map((c) => [c.key, { status: 'valid', source: 'llm' }])),
+    };
+    const pipeline = new ValidationPipeline([new WordListValidator()], {
+      validator: llm,
+      provider: 'x',
+      model: 'y',
+    });
+    pipeline.learn = (cat, word) => learned.added.push(`${cat}:${word}`);
+    const room = new Room('LEARN', { pipeline, onChange: () => {} });
+    const host = room.addPlayer('host');
+    const guest = room.addPlayer('guest');
+    room.updateSettings(host.id, {
+      letterPool: ['ب'],
+      categoryIds: ['name', 'city'],
+      stopGraceSeconds: 0,
+    });
+    room.startRound(host.id);
+    room.setAnswers(guest.id, { name: 'بهرام', city: 'بلخ' });
+    room.stop(host.id, { name: 'بابک', city: 'بوشهر' });
+    await vi.advanceTimersByTimeAsync(0);
+    await flush();
+    expect(learned.added).toEqual(['city:بلخ']); // the rest came from the list
+    room.override(host.id, guest.id, 'name', false);
+    room.override(host.id, guest.id, 'name', true);
+    expect(learned.added).toEqual(['city:بلخ', 'name:بهرام']);
+  });
+});

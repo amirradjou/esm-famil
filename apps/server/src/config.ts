@@ -10,6 +10,10 @@ export interface Config {
   ollamaModel: string;
   /** Absolute path of the built web app to serve, or null in dev. */
   staticDir: string | null;
+  /** Where the server keeps what it learns between runs (approved answers). */
+  dataDir: string;
+  /** Upper bound on simultaneously open rooms. */
+  maxRooms: number;
 }
 
 function parseProvider(v: string | undefined): LlmProvider {
@@ -32,5 +36,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ollamaUrl: env.OLLAMA_URL ?? 'http://localhost:11434',
     ollamaModel: env.OLLAMA_MODEL ?? 'qwen2.5:7b',
     staticDir: env.STATIC_DIR ?? null,
+    dataDir: env.DATA_DIR ?? 'data',
+    maxRooms: Number(env.MAX_ROOMS ?? 500),
   };
 }
