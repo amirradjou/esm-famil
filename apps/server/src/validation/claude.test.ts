@@ -10,20 +10,21 @@ const candidates = [
 ];
 
 describe('applyJudgement', () => {
-  it('maps model results back onto candidate keys and ignores unknown ids', () => {
+  it('maps numbered results back onto candidates and ignores unknown numbers', () => {
     const out = new Map<string, Verdict>();
-    applyJudgement(
+    const undecided = applyJudgement(
       {
         results: [
-          { id: 'p1:city', valid: false, note: 'شهری به این نام نیست' },
-          { id: 'p1:color', valid: false, note: '' },
-          { id: 'p2:name', valid: true, note: '' },
-          { id: 'made-up', valid: true, note: '' },
+          { id: 1, valid: false, note: 'شهری به این نام نیست' },
+          { id: 2, valid: false, note: '' },
+          { id: 3, valid: true, note: '' },
+          { id: 9, valid: true, note: '' },
         ],
       },
       candidates,
       out,
     );
+    expect(undecided).toBe(0);
     expect(out.get('p1:city')).toEqual({
       status: 'invalid',
       reason: 'not-a-thing',
@@ -31,14 +32,23 @@ describe('applyJudgement', () => {
     });
     expect(out.get('p1:color')).toEqual({ status: 'invalid', reason: 'not-a-thing' });
     expect(out.get('p2:name')).toEqual({ status: 'valid', source: 'llm' });
-    expect(out.has('made-up')).toBe(false);
+    expect(out.size).toBe(3);
+  });
+
+  it('reports candidates the model did not answer', () => {
+    const out = new Map<string, Verdict>();
+    expect(applyJudgement({ results: [{ id: 2, valid: true, note: '' }] }, candidates, out)).toBe(
+      2,
+    );
+    expect(out.get('p1:color')).toEqual({ status: 'valid', source: 'llm' });
   });
 });
 
 describe('buildUserPrompt', () => {
-  it('lists every candidate with its id, category label and letter', () => {
+  it('numbers every candidate and shows category label and letter', () => {
     const p = buildUserPrompt(candidates);
-    expect(p).toContain('id="p1:city"');
+    expect(p).toContain('1. id=1');
+    expect(p).toContain('3. id=3');
     expect(p).toContain('شهر (city)');
     expect(p).toContain('حرف: چ');
     expect(p).toContain('«چنگیز»');

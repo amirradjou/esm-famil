@@ -12,10 +12,14 @@ Rules:
 - Do NOT check the starting letter; that is done separately.
 Answer only through the required JSON schema. Give a very short Persian note (few words) only when rejecting.`;
 
+/**
+ * Candidates are numbered 1..n in the prompt and the model answers with those numbers;
+ * small models mangle opaque ids, plain integers survive.
+ */
 export function buildUserPrompt(candidates: Candidate[]): string {
   const lines = candidates.map(
     (c, i) =>
-      `${i + 1}. id="${c.key}" | دسته: ${categoryLabel(c.categoryId)} (${c.categoryId}) | حرف: ${c.letter} | پاسخ: «${c.answer}»`,
+      `${i + 1}. id=${i + 1} | دسته: ${categoryLabel(c.categoryId)} (${c.categoryId}) | حرف: ${c.letter} | پاسخ: «${c.answer}»`,
   );
-  return `Judge each of these answers:\n${lines.join('\n')}`;
+  return `Judge each of these ${candidates.length} answers and return one result per id:\n${lines.join('\n')}`;
 }

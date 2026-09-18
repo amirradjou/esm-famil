@@ -65,5 +65,12 @@ calls «استپ», and the server fact-checks and scores the answers.
   trips React error #310.
 - `GameSettingsForm` keeps a local copy of the settings and only re-syncs from the snapshot when
   no patch is in flight (counted via the ack); otherwise fast clicks lose updates.
+- Deployment is split: static client on Netlify (`netlify.toml`, `.github/workflows/deploy-web.yml`,
+  `VITE_SERVER_URL` baked in at build time) + the server on the user's laptop via Tailscale Funnel
+  (`deploy/esm-famil.service`, `scripts/serve-local.sh`). Details and gotchas in `docs/self-hosting.md`.
+- `netlify deploy` re-runs the netlify.toml build unless `--no-build` is passed — without the
+  variable that produces a same-origin bundle that silently replaces the one you built.
+- The LLM prompt numbers candidates 1..n; small models mangle opaque ids. `applyJudgement` returns
+  how many answers were left undecided and the validators log it.
 - The word database test forbids duplicates (after `normalize()`) and non-Persian entries; keep
   entries to real members of the category — leniency is the LLM judge's and the host's job.
