@@ -24,6 +24,14 @@ describe('LearnedWords', () => {
     expect(again.size('city')).toBe(1);
   });
 
+  it('refuses oversized words and unsafe category names', () => {
+    const l = new LearnedWords(dir).load();
+    l.add('city', 'ب'.repeat(41));
+    l.add('../etc/evil', 'بلخ');
+    expect(l.size('city')).toBe(0);
+    expect(l.size('../etc/evil')).toBe(0);
+  });
+
   it('feeds the word-list validator', async () => {
     const l = new LearnedWords(dir).load();
     const wl = new WordListValidator(undefined, l);
