@@ -29,16 +29,20 @@ if (existsSync(staticDir)) {
 }
 
 const pipeline = buildPipeline(config, log);
-const rooms = new RoomManager({ pipeline, log });
+const rooms = new RoomManager({ pipeline, log }, config.maxRooms);
 rooms.startSweeper();
+void pipeline.warmUp();
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(app.server, {
   cors: { origin: config.corsOrigins },
+  // A whole answer sheet is well under a kilobyte; anything bigger is not a player.
+  maxHttpBufferSize: 16 * 1024,
 });
 attachSocketHandlers(io, rooms, log);
 
 app.addHook('onClose', async () => {
   rooms.stopSweeper();
+  pipeline.learned?.flush();
   await io.close();
 });
 

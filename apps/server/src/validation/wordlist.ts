@@ -1,5 +1,6 @@
 import { ALL_CATEGORIES, normalize, type Verdict } from '@esm-famil/shared';
 import { WORD_LISTS } from './data/index.js';
+import type { LearnedWords } from './learned.js';
 import type { Candidate, Validator } from './types.js';
 
 export function loadWordLists(): Map<string, Set<string>> {
@@ -26,13 +27,17 @@ function looksLikeSurname(normalized: string): boolean {
  */
 export class WordListValidator implements Validator {
   readonly name = 'list';
-  constructor(private readonly lists: Map<string, Set<string>> = loadWordLists()) {}
+  constructor(
+    private readonly lists: Map<string, Set<string>> = loadWordLists(),
+    private readonly learned: LearnedWords | null = null,
+  ) {}
 
   has(categoryId: string, answer: string): boolean {
     const list = this.lists.get(categoryId);
     if (!list) return false;
     const n = normalize(answer);
     if (list.has(n)) return true;
+    if (this.learned?.has(categoryId, n)) return true;
     if (categoryId === 'flower') {
       if (n.startsWith('گل ') && list.has(n.slice(3))) return true;
       if (list.has(`گل ${n}`)) return true;
