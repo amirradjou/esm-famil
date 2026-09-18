@@ -32,3 +32,6 @@ htmlcov/
 
 # netlify cli state
 .netlify/
+
+# what the server learns at runtime (approved answers)
+data/

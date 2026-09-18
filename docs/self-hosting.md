@@ -22,6 +22,7 @@ players ──▶ https://esm.amirradjou.com (Netlify, static client)
    CORS_ORIGIN=https://esm.amirradjou.com,https://esm-famil-game.netlify.app,http://localhost:5173
    LLM_PROVIDER=ollama
    OLLAMA_MODEL=qwen2.5:7b
+   DATA_DIR=data          # approved answers accumulate in data/learned/<category>.json
    ```
 3. Run the server as a systemd _user_ service (starts at login, restarts on failure, no root):
    ```sh
@@ -53,6 +54,11 @@ after `pnpm build` picks up a new server version. To stop sharing: `tailscale fu
   `--no-build` matters: the CLI otherwise re-runs the `netlify.toml` build without the variable.
 
 ## Things worth knowing
+
+- `data/learned/*.json` is the server's memory of answers the judge or a host approved; back it up
+  if you care about it, delete a file to forget a category. It is git-ignored.
+- The Ollama model is warmed up at start and kept resident for an hour; the first round after a
+  long idle period can still take a while on CPU.
 
 - Rooms live in memory: a server restart, sleep or tunnel drop ends games in progress.
 - The first request after the funnel starts can take ~15 s while Tailscale issues the TLS certificate.

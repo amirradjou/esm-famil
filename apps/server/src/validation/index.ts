@@ -1,11 +1,13 @@
 import { startsWithLetter, type ServerCapabilities, type Verdict } from '@esm-famil/shared';
 import type { Config } from '../config.js';
 import { ClaudeValidator } from './claude.js';
+import { LearnedWords } from './learned.js';
 import { OllamaValidator } from './ollama.js';
 import type { Candidate, Validator } from './types.js';
 import { WordListValidator } from './wordlist.js';
 
 export type { Candidate, Validator } from './types.js';
+export { LearnedWords } from './learned.js';
 export { WordListValidator } from './wordlist.js';
 
 export interface LlmJudge {
@@ -23,7 +25,19 @@ export class ValidationPipeline {
   constructor(
     private readonly database: Validator[],
     private readonly llm: LlmJudge | null = null,
+    /** Where approved answers are remembered; null disables learning. */
+    readonly learned: LearnedWords | null = null,
   ) {}
+
+  /** Remember an answer that was judged valid so the database tier knows it next time. */
+  learn(categoryId: string, answer: string): void {
+    this.learned?.add(categoryId, answer);
+  }
+
+  /** Give the judge a chance to load its model before the first round needs it. */
+  async warmUp(): Promise<void> {
+    await this.llm?.validator.warmUp?.();
+  }
 
   get capabilities(): ServerCapabilities {
     return {
@@ -59,6 +73,7 @@ export function buildPipeline(
   config: Config,
   log: (msg: string, err?: unknown) => void,
 ): ValidationPipeline {
+  const learned = new LearnedWords(`${config.dataDir}/learned`, log).load();
   let llm: LlmJudge | null = null;
   if (config.llmProvider === 'claude') {
     llm = {
@@ -73,5 +88,5 @@ export function buildPipeline(
       model: config.ollamaModel,
     };
   }
-  return new ValidationPipeline([new WordListValidator()], llm);
+  return new ValidationPipeline([new WordListValidator(undefined, learned)], llm, learned);
 }

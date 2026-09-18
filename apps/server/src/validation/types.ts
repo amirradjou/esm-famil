@@ -16,4 +16,6 @@ export interface Candidate {
 export interface Validator {
   readonly name: string;
   check(candidates: Candidate[]): Promise<Map<string, Verdict>>;
+  /** Optional: preload whatever makes the first check slow (e.g. a local model). */
+  warmUp?(): Promise<void>;
 }
