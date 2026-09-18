@@ -70,6 +70,12 @@ calls «استپ», and the server fact-checks and scores the answers.
   (`deploy/esm-famil.service`, `scripts/serve-local.sh`). Details and gotchas in `docs/self-hosting.md`.
 - `netlify deploy` re-runs the netlify.toml build unless `--no-build` is passed — without the
   variable that produces a same-origin bundle that silently replaces the one you built.
+- `finalize()` publishes the review with `pending` verdicts before judging; anything that inspects
+  `room.review` must expect that state, and `scoreRound` treats `pending` as not counting.
+- Approved answers (LLM- or host-valid) go to `pipeline.learn()` → `LearnedWords` under
+  `DATA_DIR/learned/`; the word-list validator consults it, so tests that expect `unverified`
+  must not share a data dir with a real server.
+- Players may join in `lobby`, `review` and `finished` (`JOINABLE` in socket.ts), never mid-round.
 - The LLM prompt numbers candidates 1..n; small models mangle opaque ids. `applyJudgement` returns
   how many answers were left undecided and the validators log it.
 - The word database test forbids duplicates (after `normalize()`) and non-Persian entries; keep
