@@ -12,7 +12,8 @@ export function App() {
   if (resuming) screen = <p className="text-ink-soft p-8 text-center">در حال بازگشت به اتاق…</p>;
   else if (!state) screen = <Home />;
   else if (state.phase === 'lobby') screen = <Lobby />;
-  else if (state.phase === 'review') screen = <Review />;
+  else if (state.phase === 'review' || (state.phase === 'validating' && state.review))
+    screen = <Review />;
   else if (state.phase === 'finished') screen = <Final />;
   else screen = <Round />;
   return (

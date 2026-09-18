@@ -24,6 +24,8 @@ interface GameContextValue {
   state: RoomState | null;
   me: PlayerPublic | null;
   isHost: boolean;
+  /** Add to Date.now() to get the server's clock (corrects for the device's clock skew). */
+  clockOffset: number;
   connected: boolean;
   /** True while we are trying to resume a stored session. */
   resuming: boolean;
@@ -46,6 +48,7 @@ const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<RoomState | null>(null);
+  const [clockOffset, setClockOffset] = useState(0);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<ErrorPayload | null>(null);
   const [session, setSessionState] = useState<Session | null>(() =>
@@ -74,7 +77,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
     };
     const onDisconnect = () => setConnected(false);
-    const onState = (s: RoomState) => setState(s);
+    const onState = (s: RoomState) => {
+      setState(s);
+      setClockOffset(s.serverTime - Date.now());
+    };
     const onClosed = () => {
       setSession(null);
       setState(null);
@@ -117,6 +123,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       state,
       me,
       isHost: !!me && me.id === state?.hostId,
+      clockOffset,
       connected,
       resuming,
       error,
@@ -144,7 +151,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       next: () => emit((ack) => socket.emit('review:next', ack)),
       restart: () => emit((ack) => socket.emit('game:restart', ack)),
     };
-  }, [state, session, connected, resuming, error, handle, adopt, setSession]);
+  }, [state, session, clockOffset, connected, resuming, error, handle, adopt, setSession]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }

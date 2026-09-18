@@ -4,27 +4,33 @@ import { mmss, num } from '../format';
 import { useGame } from '../game';
 import { useNow } from '../hooks';
 import { Letter, Page } from '../components/ui';
+import { KEYS, storage } from '../storage';
 
 export function Round() {
-  const { state, me, sendAnswers, stop } = useGame();
+  const { state, me, sendAnswers, stop, clockOffset } = useGame();
   const round = state?.round;
-  const [answers, setAnswers] = useState<Answers>({});
+  // A refresh mid-round keeps what was typed (per room and round).
+  const sheetKey = state && round ? `${KEYS.answers}.${state.id}.${round.number}` : null;
+  const [answers, setAnswers] = useState<Answers>(() =>
+    sheetKey ? (storage.getJson<Answers>(sheetKey) ?? {}) : {},
+  );
   const [shake, setShake] = useState(false);
   const [busy, setBusy] = useState(false);
   const firstInput = useRef<HTMLInputElement>(null);
   const now = useNow(!!round);
 
-  // Fresh sheet for every round.
+  // Fresh sheet for every round (unless this round's sheet was saved before a refresh).
   useEffect(() => {
-    setAnswers({});
+    setAnswers(sheetKey ? (storage.getJson<Answers>(sheetKey) ?? {}) : {});
     firstInput.current?.focus();
-  }, [round?.number]);
+  }, [sheetKey]);
 
-  // Autosave so a stopped round still counts what was typed.
+  // Autosave so a stopped round still counts what was typed, and so a refresh keeps it.
   useEffect(() => {
+    if (sheetKey) storage.setJson(sheetKey, answers);
     const id = setTimeout(() => sendAnswers(answers), 250);
     return () => clearTimeout(id);
-  }, [answers, sendAnswers]);
+  }, [answers, sendAnswers, sheetKey]);
 
   const categories = state?.settings.categoryIds ?? [];
   const letter = round?.letter ?? '';
@@ -39,7 +45,8 @@ export function Round() {
   const validating = state.phase === 'validating';
   const stopper = stopping ? state.players.find((p) => p.id === round.stop?.by) : null;
   const deadline = stopping ? (round.stop?.deadline ?? now) : round.endsAt;
-  const remaining = deadline ? deadline - now : null;
+  const remaining = deadline ? deadline - (now + clockOffset) : null;
+  const others = state.players.filter((p) => p.id !== me.id);
 
   const onStop = async () => {
     if (!complete) {
@@ -129,6 +136,25 @@ export function Round() {
               })}
             </ul>
           </section>
+
+          {others.length > 0 && (
+            <ul className="flex flex-wrap gap-2 text-sm" aria-label="پیشرفت بقیه">
+              {others.map((p) => {
+                const n = round.progress[p.id] ?? 0;
+                const done = n >= categories.length;
+                return (
+                  <li
+                    key={p.id}
+                    className={`rounded-[6px] border-[1.5px] px-2 py-0.5 ${
+                      done ? 'border-pen text-pen' : 'border-rule text-ink-soft'
+                    } ${p.connected ? '' : 'opacity-50'}`}
+                  >
+                    {p.name} {num(n)}/{num(categories.length)}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
           <button
             className="btn btn-marker sticky bottom-4 text-2xl font-black"

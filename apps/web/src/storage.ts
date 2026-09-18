@@ -35,4 +35,6 @@ export const storage = {
 export const KEYS = {
   session: 'esm-famil.session',
   name: 'esm-famil.name',
+  /** Prefix; the room id and round number are appended. */
+  answers: 'esm-famil.answers',
 } as const;

@@ -5,6 +5,8 @@ export function describeVerdict(v: Verdict): string {
   switch (v.status) {
     case 'empty':
       return '';
+    case 'pending':
+      return 'در حال داوری…';
     case 'valid':
       return {
         list: 'در فهرست',
@@ -32,6 +34,14 @@ export function VerdictCell({
 }) {
   const v = cell.verdict;
   if (v.status === 'empty') return <span className="text-ink-soft">—</span>;
+  if (v.status === 'pending') {
+    return (
+      <div>
+        <span className="text-lg font-medium">{cell.answer}</span>
+        <span className="text-ink-soft block animate-pulse text-xs">{describeVerdict(v)}</span>
+      </div>
+    );
+  }
   const good = cell.points > 0;
   const tone = good ? 'text-ok' : 'text-pen line-through decoration-2';
   const body = (
