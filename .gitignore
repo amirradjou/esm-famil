@@ -35,3 +35,7 @@ htmlcov/
 
 # what the server learns at runtime (approved answers)
 data/
+
+# Claude Code project files: local only, never committed
+.claude/
+CLAUDE.md
