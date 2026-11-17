@@ -2,6 +2,7 @@
   "name": "esm-famil",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Online multiplayer اسم فامیل (Persian Scattergories) with a host/join lobby and answer fact-checking",
   "type": "module",
   "engines": {
